@@ -5,6 +5,53 @@ let workers = JSON.parse(localStorage.getItem('workers') || '[]');
 let clients = JSON.parse(localStorage.getItem('clients') || '[]');
 let workOrders = JSON.parse(localStorage.getItem('workOrders') || '[]');
 
+// Initialize EmailJS if available. Replace 'YOUR_PUBLIC_KEY' with your actual public key from EmailJS.
+if (typeof emailjs !== 'undefined') {
+    try {
+        emailjs.init('YOUR_PUBLIC_KEY');
+    } catch (e) {
+        console.warn('EmailJS failed to initialize. Please provide a valid public key.');
+    }
+}
+
+/**
+ * Send an email notification to the assigned worker when a new work order is created.
+ * This function uses EmailJS to send an email. You must configure a service and template
+ * on emailjs.com and replace the placeholders below with your own IDs. If EmailJS
+ * is not configured, this function will simply log a message to the console.
+ *
+ * @param {Object} order The newly created work order object
+ */
+function sendNewWorkOrderEmail(order) {
+    const worker = workers.find(w => w.id === order.workerId);
+    if (!worker || !worker.email) {
+        console.warn('Worker email not found; cannot send notification');
+        return;
+    }
+    const client = clients.find(c => c.id === order.clientId) || {};
+    const params = {
+        worker_name: worker.name,
+        worker_email: worker.email,
+        order_number: order.number,
+        order_title: order.title,
+        order_description: order.description,
+        due_date: order.dueDate,
+        service_location: order.serviceLocation,
+        client_name: client.name || ''
+    };
+    if (typeof emailjs !== 'undefined' && emailjs.send) {
+        emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', params)
+            .then(function(response) {
+                console.log('Email successfully sent:', response.status, response.text);
+            }, function(error) {
+                console.error('Failed to send email:', error);
+            });
+    } else {
+        // Fallback: log to console. You can replace this with a mailto: link or other implementation.
+        console.log('EmailJS not configured. Notification would be sent to:', worker.email, params);
+    }
+}
+
 // Reference to forms and sections
 const tabs = document.querySelectorAll('.tabs button');
 const sections = document.querySelectorAll('.tab-content');
@@ -317,8 +364,8 @@ woForm.addEventListener('submit', async e => {
         saveWorkOrders();
         renderWorkOrders();
         alert('Work order created');
-        // Simulate sending notification immediately
-        sendWorkOrder(id);
+        // Send email notification to worker for the new work order
+        sendNewWorkOrderEmail(newWO);
     }
     woForm.reset();
     // Reset created date field to today's date for new entry
@@ -395,8 +442,17 @@ function viewWorkOrder(id) {
     const client = clients.find(c => c.id === wo.clientId);
     const worker = workers.find(w => w.id === wo.workerId);
     let html = '';
+    // Title
     html += `<h2>${wo.number} - ${wo.title}</h2>`;
-    html += `<p><strong>Status:</strong> ${wo.status}</p>`;
+    // Interactive status selector
+    const statuses = ['Open','On Hold','In Progress','Done'];
+    html += '<div class="status-selector">';
+    statuses.forEach(st => {
+        const activeClass = st === wo.status ? 'active' : '';
+        html += `<button class="status-option ${activeClass}" data-status="${st}">${st}</button>`;
+    });
+    html += '</div>';
+    // Accepted/Declined info
     if (typeof wo.accepted === 'boolean') {
         html += `<p><strong>Response:</strong> ${wo.accepted ? 'Accepted' : 'Declined'}</p>`;
     }
@@ -426,6 +482,21 @@ function viewWorkOrder(id) {
         html += '</div>';
     }
     modalContent.innerHTML = html;
+    // Attach event listeners for status buttons once content is set
+    const statusButtons = modalContent.querySelectorAll('.status-option');
+    statusButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const newStatus = btn.getAttribute('data-status');
+            if (wo.status !== newStatus) {
+                wo.status = newStatus;
+                saveWorkOrders();
+                renderWorkOrders();
+            }
+            // Update active classes
+            statusButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
     modalOverlay.classList.remove('hidden');
 }
 
@@ -439,6 +510,8 @@ function sendWorkOrder(id) {
     if (!wo) return;
     const worker = workers.find(w => w.id === wo.workerId);
     if (!worker) return;
+    // Send email notification when the work order is explicitly sent. This notifies the worker that a work order awaits their response.
+    sendNewWorkOrderEmail(wo);
     // Show modal with accept/decline options
     let html = '';
     html += `<h2>Send Work Order</h2>`;
