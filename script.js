@@ -1,0 +1,479 @@
+// Work Order Management Script
+
+// Data arrays (loaded from localStorage if available)
+let workers = JSON.parse(localStorage.getItem('workers') || '[]');
+let clients = JSON.parse(localStorage.getItem('clients') || '[]');
+let workOrders = JSON.parse(localStorage.getItem('workOrders') || '[]');
+
+// Reference to forms and sections
+const tabs = document.querySelectorAll('.tabs button');
+const sections = document.querySelectorAll('.tab-content');
+
+// Work order form and elements
+const woForm = document.getElementById('workorder-form');
+const woClientSelect = document.getElementById('wo-client');
+const woWorkerSelect = document.getElementById('wo-worker');
+const woStatusSelect = document.getElementById('wo-status');
+const woNumberInput = document.getElementById('wo-number');
+const woCreatedInput = document.getElementById('wo-created');
+const woDueInput = document.getElementById('wo-due');
+const woLocationInput = document.getElementById('wo-location');
+const woContactNameInput = document.getElementById('wo-contact-name');
+const woContactPhoneInput = document.getElementById('wo-contact-phone');
+const woServiceDescInput = document.getElementById('wo-service-description');
+const woPhotosBeforeInput = document.getElementById('wo-photos');
+const woPhotosAfterInput = document.getElementById('wo-photos-after');
+
+// Worker and client forms
+const workerForm = document.getElementById('worker-form');
+const workerSpecialtyInput = document.getElementById('worker-specialty');
+const clientForm = document.getElementById('client-form');
+
+// List containers
+const workordersList = document.getElementById('workorders-list');
+const workersList = document.getElementById('workers-list');
+const clientsList = document.getElementById('clients-list');
+
+// Modal elements
+const modalOverlay = document.getElementById('modal-overlay');
+const modalContent = document.getElementById('modal-content');
+const closeModalBtn = document.getElementById('close-modal');
+const cancelWoBtn = document.getElementById('cancel-wo');
+
+// Current editing Work Order id (null if creating new)
+let editingWorkOrderId = null;
+
+// Utility functions to save to localStorage
+function saveWorkers() {
+    localStorage.setItem('workers', JSON.stringify(workers));
+}
+
+function saveClients() {
+    localStorage.setItem('clients', JSON.stringify(clients));
+}
+
+function saveWorkOrders() {
+    localStorage.setItem('workOrders', JSON.stringify(workOrders));
+}
+
+// Populate dropdowns for clients and workers
+function populateDropdowns() {
+    // Clients
+    woClientSelect.innerHTML = '<option value="">Select client</option>';
+    clients.forEach(client => {
+        const option = document.createElement('option');
+        option.value = client.id;
+        option.textContent = client.name;
+        woClientSelect.appendChild(option);
+    });
+    // Workers
+    woWorkerSelect.innerHTML = '<option value="">Select worker</option>';
+    workers.forEach(worker => {
+        const option = document.createElement('option');
+        option.value = worker.id;
+        option.textContent = worker.name;
+        woWorkerSelect.appendChild(option);
+    });
+}
+
+// Render lists
+function renderWorkers() {
+    workersList.innerHTML = '';
+    if (workers.length === 0) {
+        workersList.innerHTML = '<p>No workers registered.</p>';
+        return;
+    }
+    workers.forEach(worker => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        let html = `<h4>${worker.name}</h4>`;
+        html += `<p>Email: ${worker.email}</p>`;
+        if (worker.phone) html += `<p>Phone: ${worker.phone}</p>`;
+        if (worker.specialty) html += `<p>Specialty: ${worker.specialty}</p>`;
+        card.innerHTML = html;
+        workersList.appendChild(card);
+    });
+}
+
+function renderClients() {
+    clientsList.innerHTML = '';
+    if (clients.length === 0) {
+        clientsList.innerHTML = '<p>No clients registered.</p>';
+        return;
+    }
+    clients.forEach(client => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+            <h4>${client.name}</h4>
+            <p>Email: ${client.email}</p>
+            ${client.phone ? `<p>Phone: ${client.phone}</p>` : ''}
+        `;
+        clientsList.appendChild(card);
+    });
+}
+
+function renderWorkOrders() {
+    workordersList.innerHTML = '';
+    if (workOrders.length === 0) {
+        workordersList.innerHTML = '<p>No work orders created.</p>';
+        return;
+    }
+    // Sort by creation date descending for display (latest first)
+    const sorted = [...workOrders].sort((a, b) => b.createdAt - a.createdAt);
+    sorted.forEach(wo => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        // Determine human readable names
+        const client = clients.find(c => c.id === wo.clientId);
+        const worker = workers.find(w => w.id === wo.workerId);
+        // Status indicator
+        const statusSpan = document.createElement('span');
+        statusSpan.className = 'status';
+        statusSpan.textContent = wo.status;
+        // store status on attribute for styling
+        statusSpan.setAttribute('data-status', wo.status);
+        card.appendChild(statusSpan);
+        const titleEl = document.createElement('h4');
+        titleEl.textContent = `${wo.number} - ${wo.title}`;
+        card.appendChild(titleEl);
+        const meta = document.createElement('p');
+        meta.textContent = `Client: ${client ? client.name : 'N/A'} | Worker: ${worker ? worker.name : 'N/A'}`;
+        card.appendChild(meta);
+        const due = document.createElement('p');
+        due.textContent = `Due: ${wo.dueDate || ''}`;
+        card.appendChild(due);
+        // Accept/Decline status indicator
+        if (typeof wo.accepted === 'boolean') {
+            const acc = document.createElement('p');
+            acc.textContent = wo.accepted ? 'Accepted' : 'Declined';
+            acc.style.fontWeight = 'bold';
+            acc.style.color = wo.accepted ? '#2e7d32' : '#e53935';
+            card.appendChild(acc);
+        }
+        // Actions
+        const actions = document.createElement('div');
+        actions.className = 'card-actions';
+        // Edit button
+        const editBtn = document.createElement('button');
+        editBtn.className = 'edit-btn';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', () => editWorkOrder(wo.id));
+        actions.appendChild(editBtn);
+        // View button
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'view-btn';
+        viewBtn.textContent = 'View';
+        viewBtn.addEventListener('click', () => viewWorkOrder(wo.id));
+        actions.appendChild(viewBtn);
+        // Delete button
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.addEventListener('click', () => deleteWorkOrder(wo.id));
+        actions.appendChild(deleteBtn);
+        // Send button (only if not yet sent or accepted)
+        const sendBtn = document.createElement('button');
+        sendBtn.className = 'send-btn';
+        sendBtn.textContent = 'Send';
+        sendBtn.addEventListener('click', () => sendWorkOrder(wo.id));
+        actions.appendChild(sendBtn);
+        card.appendChild(actions);
+        workordersList.appendChild(card);
+    });
+}
+
+// Tab switching
+tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+        tabs.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const id = btn.id.replace('tab-', '') + '-section';
+        sections.forEach(sec => sec.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    });
+});
+
+// Worker form submission
+workerForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const name = document.getElementById('worker-name').value.trim();
+    const email = document.getElementById('worker-email').value.trim();
+    const phone = document.getElementById('worker-phone').value.trim();
+    const specialty = workerSpecialtyInput.value.trim();
+    if (!name || !email) return;
+    const id = Date.now().toString();
+    workers.push({ id, name, email, phone, specialty });
+    saveWorkers();
+    populateDropdowns();
+    renderWorkers();
+    workerForm.reset();
+    alert('Worker saved');
+});
+
+// Client form submission
+clientForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const name = document.getElementById('client-name').value.trim();
+    const email = document.getElementById('client-email').value.trim();
+    const phone = document.getElementById('client-phone').value.trim();
+    if (!name || !email) return;
+    const id = Date.now().toString();
+    clients.push({ id, name, email, phone });
+    saveClients();
+    populateDropdowns();
+    renderClients();
+    clientForm.reset();
+    alert('Client saved');
+});
+
+// Work order form submission
+woForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const number = woNumberInput.value.trim();
+    const title = document.getElementById('wo-title').value.trim();
+    const description = document.getElementById('wo-description').value.trim();
+    const clientId = woClientSelect.value;
+    const workerId = woWorkerSelect.value;
+    const status = woStatusSelect.value;
+    const dueDate = woDueInput.value;
+    const location = woLocationInput.value.trim();
+    const contactName = woContactNameInput.value.trim();
+    const contactPhone = woContactPhoneInput.value.trim();
+    if (!number || !title || !description || !clientId || !workerId || !dueDate || !location || !contactName || !contactPhone) {
+        alert('Please complete all required fields');
+        return;
+    }
+    // Convert before photos to Base64 strings
+    const photoFilesBefore = woPhotosBeforeInput.files;
+    const photosBefore = [];
+    for (const file of photoFilesBefore) {
+        const dataUrl = await fileToDataURL(file);
+        photosBefore.push(dataUrl);
+    }
+    if (editingWorkOrderId) {
+        // Editing existing
+        const wo = workOrders.find(w => w.id === editingWorkOrderId);
+        if (wo) {
+            wo.number = number;
+            wo.title = title;
+            wo.description = description;
+            wo.clientId = clientId;
+            wo.workerId = workerId;
+            wo.status = status;
+            wo.dueDate = dueDate;
+            wo.serviceLocation = location;
+            wo.contactName = contactName;
+            wo.contactPhone = contactPhone;
+            // Append new photos before
+            if (photosBefore.length > 0) wo.photosBefore = wo.photosBefore.concat(photosBefore);
+            // Service executed details
+            const serviceDesc = woServiceDescInput.value.trim();
+            if (serviceDesc) wo.serviceDescription = serviceDesc;
+            // After photos
+            const photoFilesAfter = woPhotosAfterInput.files;
+            const afterList = [];
+            for (const file of photoFilesAfter) {
+                const dataUrl = await fileToDataURL(file);
+                afterList.push(dataUrl);
+            }
+            if (afterList.length > 0) {
+                if (!wo.photosAfter) wo.photosAfter = [];
+                wo.photosAfter = wo.photosAfter.concat(afterList);
+            }
+            saveWorkOrders();
+            renderWorkOrders();
+            alert('Work order updated');
+        }
+        editingWorkOrderId = null;
+        cancelWoBtn.classList.add('hidden');
+        // Hide service executed section after editing
+        toggleServiceExecutedFields(false);
+    } else {
+        // Create new
+        const id = Date.now().toString();
+        const createdAt = Date.now();
+        const createdDateStr = new Date(createdAt).toISOString().split('T')[0];
+        const newWO = {
+            id,
+            number,
+            title,
+            description,
+            clientId,
+            workerId,
+            status,
+            photosBefore,
+            createdAt,
+            createdDate: createdDateStr,
+            dueDate,
+            serviceLocation: location,
+            contactName,
+            contactPhone,
+            accepted: null, // will be set after worker accepts/declines
+            serviceDescription: '',
+            photosAfter: []
+        };
+        workOrders.push(newWO);
+        saveWorkOrders();
+        renderWorkOrders();
+        alert('Work order created');
+        // Simulate sending notification immediately
+        sendWorkOrder(id);
+    }
+    woForm.reset();
+    // Reset created date field to today's date for new entry
+    const today = new Date().toISOString().split('T')[0];
+    woCreatedInput.value = today;
+});
+
+// Cancel editing
+cancelWoBtn.addEventListener('click', () => {
+    editingWorkOrderId = null;
+    woForm.reset();
+    cancelWoBtn.classList.add('hidden');
+    // Hide service executed fields
+    toggleServiceExecutedFields(false);
+});
+
+// Helper: file to data URL
+function fileToDataURL(file) {
+    return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+    });
+}
+
+// Toggle service executed fields visibility
+function toggleServiceExecutedFields(show) {
+    const sections = document.querySelectorAll('.service-executed-section');
+    sections.forEach(sec => {
+        if (show) {
+            sec.classList.remove('hidden');
+        } else {
+            sec.classList.add('hidden');
+        }
+    });
+}
+
+// Edit work order
+function editWorkOrder(id) {
+    const wo = workOrders.find(w => w.id === id);
+    if (!wo) return;
+    editingWorkOrderId = id;
+    woNumberInput.value = wo.number;
+    document.getElementById('wo-title').value = wo.title;
+    document.getElementById('wo-description').value = wo.description;
+    woClientSelect.value = wo.clientId;
+    woWorkerSelect.value = wo.workerId;
+    woStatusSelect.value = wo.status;
+    woCreatedInput.value = wo.createdDate;
+    woDueInput.value = wo.dueDate;
+    woLocationInput.value = wo.serviceLocation;
+    woContactNameInput.value = wo.contactName;
+    woContactPhoneInput.value = wo.contactPhone;
+    woServiceDescInput.value = wo.serviceDescription || '';
+    // When editing, show service executed section so user can add executed details
+    toggleServiceExecutedFields(true);
+    cancelWoBtn.classList.remove('hidden');
+    // Scroll to form
+    document.getElementById('workorders-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+// Delete work order
+function deleteWorkOrder(id) {
+    if (!confirm('Are you sure you want to delete this work order?')) return;
+    workOrders = workOrders.filter(w => w.id !== id);
+    saveWorkOrders();
+    renderWorkOrders();
+}
+
+// View work order
+function viewWorkOrder(id) {
+    const wo = workOrders.find(w => w.id === id);
+    if (!wo) return;
+    const client = clients.find(c => c.id === wo.clientId);
+    const worker = workers.find(w => w.id === wo.workerId);
+    let html = '';
+    html += `<h2>${wo.number} - ${wo.title}</h2>`;
+    html += `<p><strong>Status:</strong> ${wo.status}</p>`;
+    if (typeof wo.accepted === 'boolean') {
+        html += `<p><strong>Response:</strong> ${wo.accepted ? 'Accepted' : 'Declined'}</p>`;
+    }
+    html += `<p><strong>Description:</strong> ${wo.description}</p>`;
+    html += `<p><strong>Client:</strong> ${client ? `${client.name} (${client.email})` : 'N/A'}</p>`;
+    html += `<p><strong>Worker:</strong> ${worker ? `${worker.name} (${worker.email})` : 'N/A'}</p>`;
+    html += `<p><strong>Created:</strong> ${wo.createdDate}</p>`;
+    html += `<p><strong>Due Date:</strong> ${wo.dueDate}</p>`;
+    html += `<p><strong>Location:</strong> ${wo.serviceLocation}</p>`;
+    html += `<p><strong>Contact:</strong> ${wo.contactName} (${wo.contactPhone})</p>`;
+    if (wo.photosBefore && wo.photosBefore.length > 0) {
+        html += '<h3>Problem Photos</h3><div class="photo-gallery">';
+        wo.photosBefore.forEach(src => {
+            html += `<img src="${src}" alt="Photo" style="max-width:100%;margin-bottom:0.5rem;">`;
+        });
+        html += '</div>';
+    }
+    // Service executed details
+    if (wo.serviceDescription) {
+        html += `<p><strong>Service Executed Description:</strong> ${wo.serviceDescription}</p>`;
+    }
+    if (wo.photosAfter && wo.photosAfter.length > 0) {
+        html += '<h3>Executed Service Photos</h3><div class="photo-gallery">';
+        wo.photosAfter.forEach(src => {
+            html += `<img src="${src}" alt="Photo" style="max-width:100%;margin-bottom:0.5rem;">`;
+        });
+        html += '</div>';
+    }
+    modalContent.innerHTML = html;
+    modalOverlay.classList.remove('hidden');
+}
+
+closeModalBtn.addEventListener('click', () => {
+    modalOverlay.classList.add('hidden');
+});
+
+// Send work order (notification simulation with accept/decline)
+function sendWorkOrder(id) {
+    const wo = workOrders.find(w => w.id === id);
+    if (!wo) return;
+    const worker = workers.find(w => w.id === wo.workerId);
+    if (!worker) return;
+    // Show modal with accept/decline options
+    let html = '';
+    html += `<h2>Send Work Order</h2>`;
+    html += `<p>This will send the work order "${wo.number} - ${wo.title}" to ${worker.name} at ${worker.email}.</p>`;
+    html += `<button id="accept-btn" style="margin-right:0.5rem;background-color:#2e7d32;color:white;padding:0.5rem;border:none;border-radius:4px;cursor:pointer;">Accept</button>`;
+    html += `<button id="decline-btn" style="background-color:#e53935;color:white;padding:0.5rem;border:none;border-radius:4px;cursor:pointer;">Decline</button>`;
+    modalContent.innerHTML = html;
+    modalOverlay.classList.remove('hidden');
+    document.getElementById('accept-btn').addEventListener('click', () => {
+        wo.accepted = true;
+        wo.status = 'In Progress';
+        saveWorkOrders();
+        renderWorkOrders();
+        modalOverlay.classList.add('hidden');
+        alert(`Work order accepted by ${worker.name}`);
+    });
+    document.getElementById('decline-btn').addEventListener('click', () => {
+        wo.accepted = false;
+        wo.status = 'On Hold';
+        saveWorkOrders();
+        renderWorkOrders();
+        modalOverlay.classList.add('hidden');
+        alert(`Work order declined by ${worker.name}`);
+    });
+}
+
+// Load initial lists
+function init() {
+    populateDropdowns();
+    renderWorkers();
+    renderClients();
+    renderWorkOrders();
+    // For new entries, set created date field to today (this field is disabled and used for display)
+    const today = new Date().toISOString().split('T')[0];
+    woCreatedInput.value = today;
+}
+
+init();
