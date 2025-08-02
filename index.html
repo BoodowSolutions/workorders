@@ -10,16 +10,15 @@
     <header>
         <!-- Remove the blue banner and title to blend with Wix site. We keep only the navigation tabs. -->
         <nav class="tabs">
+            <!-- Only display the Work Orders tab by default; other entities are created via the floating action button -->
             <button id="tab-workorders" class="active">Work Orders</button>
-            <button id="tab-workers">Workers</button>
-            <button id="tab-clients">Clients</button>
         </nav>
     </header>
 
     <!-- Work Orders Section -->
     <section id="workorders-section" class="tab-content active">
-        <h2>Create New Work Order</h2>
-        <form id="workorder-form">
+        <!-- Work order form is hidden by default and shown when creating a new order -->
+        <form id="workorder-form" class="hidden">
             <div class="form-group">
                 <label for="wo-number">Work Order Number</label>
                 <input type="text" id="wo-number" name="number" required>
@@ -54,15 +53,23 @@
             </div>
             <div class="form-group">
                 <label for="wo-client">Client</label>
-                <select id="wo-client" name="client" required>
-                    <option value="">Select client</option>
-                </select>
+                <div class="select-with-add">
+                    <select id="wo-client" name="client" required>
+                        <option value="">Select client</option>
+                    </select>
+                    <!-- Quick add client button -->
+                    <button type="button" id="add-client-btn" class="add-mini-btn" title="Add new client">+</button>
+                </div>
             </div>
             <div class="form-group">
                 <label for="wo-worker">Worker</label>
-                <select id="wo-worker" name="worker" required>
-                    <option value="">Select worker</option>
-                </select>
+                <div class="select-with-add">
+                    <select id="wo-worker" name="worker" required>
+                        <option value="">Select worker</option>
+                    </select>
+                    <!-- Quick add worker button -->
+                    <button type="button" id="add-worker-btn" class="add-mini-btn" title="Add new worker">+</button>
+                </div>
             </div>
             <div class="form-group">
                 <label for="wo-status">Status</label>
@@ -90,7 +97,7 @@
             <button type="button" id="cancel-wo" class="secondary-btn hidden">Cancel</button>
         </form>
         <!-- Sub-tabs for Active and Completed work orders -->
-        <nav class="sub-tabs">
+        <nav class="sub-tabs" id="workorder-list-tabs">
             <button id="sub-tab-active" class="sub-tab active">Active Work Orders</button>
             <button id="sub-tab-completed" class="sub-tab">Completed Work Orders</button>
         </nav>
@@ -98,8 +105,8 @@
         <div id="completed-workorders-list" class="list-container hidden"></div>
     </section>
 
-    <!-- Workers Section -->
-    <section id="workers-section" class="tab-content">
+    <!-- Workers Section (hidden by default) -->
+    <section id="workers-section" class="tab-content hidden">
         <h2>Add New Worker</h2>
         <form id="worker-form">
             <div class="form-group">
@@ -124,8 +131,8 @@
         <div id="workers-list" class="list-container"></div>
     </section>
 
-    <!-- Clients Section -->
-    <section id="clients-section" class="tab-content">
+    <!-- Clients Section (hidden by default) -->
+    <section id="clients-section" class="tab-content hidden">
         <h2>Add New Client</h2>
         <form id="client-form">
             <div class="form-group">
@@ -152,6 +159,14 @@
             <button id="close-modal" class="close-btn">×</button>
             <div id="modal-content"></div>
         </div>
+    </div>
+
+    <!-- Floating action button for creating new entries -->
+    <button id="fab-button" class="fab">+</button>
+    <div id="fab-menu" class="fab-menu hidden">
+        <button id="fab-create-workorder">New Work Order</button>
+        <button id="fab-create-worker">New Worker</button>
+        <button id="fab-create-client">New Client</button>
     </div>
 
     <!-- Include EmailJS SDK for sending emails. To enable email notifications, sign up at emailjs.com and replace the placeholders in script.js with your own keys. -->

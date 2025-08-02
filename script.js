@@ -107,6 +107,97 @@ const modalContent = document.getElementById('modal-content');
 const closeModalBtn = document.getElementById('close-modal');
 const cancelWoBtn = document.getElementById('cancel-wo');
 
+// Floating action button and menu elements
+const fabButton = document.getElementById('fab-button');
+const fabMenu = document.getElementById('fab-menu');
+const fabCreateWorkOrderBtn = document.getElementById('fab-create-workorder');
+const fabCreateWorkerBtn = document.getElementById('fab-create-worker');
+const fabCreateClientBtn = document.getElementById('fab-create-client');
+
+// Quick add buttons inside selects
+const addClientBtn = document.getElementById('add-client-btn');
+const addWorkerBtn = document.getElementById('add-worker-btn');
+
+// Sections for conditional display
+const workordersSection = document.getElementById('workorders-section');
+const workersSection = document.getElementById('workers-section');
+const clientsSection = document.getElementById('clients-section');
+const workorderListTabs = document.getElementById('workorder-list-tabs');
+
+// Helper functions to toggle sections/forms
+function showWorkOrderForm() {
+    // show work order form
+    woForm.classList.remove('hidden');
+    // show cancel button
+    cancelWoBtn.classList.remove('hidden');
+    // hide work order lists and tabs
+    if (workorderListTabs) workorderListTabs.classList.add('hidden');
+    workordersList.classList.add('hidden');
+    completedWorkordersList.classList.add('hidden');
+    // hide other sections
+    workersSection.classList.add('hidden');
+    clientsSection.classList.add('hidden');
+    // ensure workorders section is visible and active
+    workordersSection.classList.remove('hidden');
+    workordersSection.classList.add('active');
+    workersSection.classList.remove('active');
+    clientsSection.classList.remove('active');
+    // reset editing id
+    editingWorkOrderId = null;
+}
+
+function hideWorkOrderForm() {
+    // hide form
+    woForm.classList.add('hidden');
+    // hide cancel button
+    cancelWoBtn.classList.add('hidden');
+    // show work order lists and tabs
+    if (workorderListTabs) workorderListTabs.classList.remove('hidden');
+    workordersList.classList.remove('hidden');
+    // Show/hide completed list depending on active sub-tab
+    if (subTabActiveBtn && subTabActiveBtn.classList.contains('active')) {
+        completedWorkordersList.classList.add('hidden');
+    } else {
+        completedWorkordersList.classList.remove('hidden');
+    }
+    // ensure workorders section is visible and active
+    workordersSection.classList.remove('hidden');
+    workordersSection.classList.add('active');
+    workersSection.classList.remove('active');
+    workersSection.classList.add('hidden');
+    clientsSection.classList.remove('active');
+    clientsSection.classList.add('hidden');
+    // reset form
+    woForm.reset();
+    // reset created date
+    const today = new Date().toISOString().split('T')[0];
+    woCreatedInput.value = today;
+}
+
+function showWorkersSection() {
+    // Activate workers section and deactivate others
+    workersSection.classList.remove('hidden');
+    workersSection.classList.add('active');
+    clientsSection.classList.remove('active');
+    clientsSection.classList.add('hidden');
+    workordersSection.classList.remove('active');
+    workordersSection.classList.add('hidden');
+    // hide fab menu
+    fabMenu.classList.add('hidden');
+}
+
+function showClientsSection() {
+    // Activate clients section and deactivate others
+    clientsSection.classList.remove('hidden');
+    clientsSection.classList.add('active');
+    workersSection.classList.remove('active');
+    workersSection.classList.add('hidden');
+    workordersSection.classList.remove('active');
+    workordersSection.classList.add('hidden');
+    // hide fab menu
+    fabMenu.classList.add('hidden');
+}
+
 // Current editing Work Order id (null if creating new)
 let editingWorkOrderId = null;
 
@@ -312,6 +403,40 @@ tabs.forEach(btn => {
     });
 });
 
+// Floating action button toggling and menu actions
+if (fabButton && fabMenu) {
+    fabButton.addEventListener('click', () => {
+        fabMenu.classList.toggle('hidden');
+    });
+}
+if (fabCreateWorkOrderBtn) {
+    fabCreateWorkOrderBtn.addEventListener('click', () => {
+        // hide menu and show work order form
+        fabMenu.classList.add('hidden');
+        showWorkOrderForm();
+    });
+}
+if (fabCreateWorkerBtn) {
+    fabCreateWorkerBtn.addEventListener('click', () => {
+        showWorkersSection();
+    });
+}
+if (fabCreateClientBtn) {
+    fabCreateClientBtn.addEventListener('click', () => {
+        showClientsSection();
+    });
+}
+if (addClientBtn) {
+    addClientBtn.addEventListener('click', () => {
+        showClientsSection();
+    });
+}
+if (addWorkerBtn) {
+    addWorkerBtn.addEventListener('click', () => {
+        showWorkersSection();
+    });
+}
+
 // Worker form submission
 workerForm.addEventListener('submit', e => {
     e.preventDefault();
@@ -399,9 +524,10 @@ woForm.addEventListener('submit', async e => {
                 if (!wo.photosAfter) wo.photosAfter = [];
                 wo.photosAfter = wo.photosAfter.concat(afterList);
             }
-            saveWorkOrders();
-            renderWorkOrders();
-            alert('Work order updated');
+        saveWorkOrders();
+        renderWorkOrders();
+        alert('Work order updated');
+        hideWorkOrderForm();
         }
         editingWorkOrderId = null;
         cancelWoBtn.classList.add('hidden');
@@ -437,6 +563,8 @@ woForm.addEventListener('submit', async e => {
         alert('Work order created');
         // Send email notification to worker for the new work order
         sendNewWorkOrderEmail(newWO);
+        // Return to list view after creation
+        hideWorkOrderForm();
     }
     woForm.reset();
     // Reset created date field to today's date for new entry
@@ -447,10 +575,10 @@ woForm.addEventListener('submit', async e => {
 // Cancel editing
 cancelWoBtn.addEventListener('click', () => {
     editingWorkOrderId = null;
-    woForm.reset();
-    cancelWoBtn.classList.add('hidden');
     // Hide service executed fields
     toggleServiceExecutedFields(false);
+    // Hide form and show lists
+    hideWorkOrderForm();
 });
 
 // Helper: file to data URL
@@ -478,6 +606,8 @@ function toggleServiceExecutedFields(show) {
 function editWorkOrder(id) {
     const wo = workOrders.find(w => w.id === id);
     if (!wo) return;
+    // Show form and hide lists before populating
+    showWorkOrderForm();
     editingWorkOrderId = id;
     woNumberInput.value = wo.number;
     document.getElementById('wo-title').value = wo.title;
