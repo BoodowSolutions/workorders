@@ -79,6 +79,25 @@ const clientForm = document.getElementById('client-form');
 // List containers
 const workordersList = document.getElementById('workorders-list');
 const completedWorkordersList = document.getElementById('completed-workorders-list');
+
+// Sub-tab buttons for switching between active and completed work orders
+const subTabActiveBtn = document.getElementById('sub-tab-active');
+const subTabCompletedBtn = document.getElementById('sub-tab-completed');
+
+if (subTabActiveBtn && subTabCompletedBtn) {
+    subTabActiveBtn.addEventListener('click', () => {
+        subTabActiveBtn.classList.add('active');
+        subTabCompletedBtn.classList.remove('active');
+        workordersList.classList.remove('hidden');
+        completedWorkordersList.classList.add('hidden');
+    });
+    subTabCompletedBtn.addEventListener('click', () => {
+        subTabCompletedBtn.classList.add('active');
+        subTabActiveBtn.classList.remove('active');
+        workordersList.classList.add('hidden');
+        completedWorkordersList.classList.remove('hidden');
+    });
+}
 const workersList = document.getElementById('workers-list');
 const clientsList = document.getElementById('clients-list');
 

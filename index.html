@@ -89,10 +89,13 @@
             <button type="submit" class="primary-btn">Save Work Order</button>
             <button type="button" id="cancel-wo" class="secondary-btn hidden">Cancel</button>
         </form>
-        <h3>Existing Work Orders</h3>
+        <!-- Sub-tabs for Active and Completed work orders -->
+        <nav class="sub-tabs">
+            <button id="sub-tab-active" class="sub-tab active">Active Work Orders</button>
+            <button id="sub-tab-completed" class="sub-tab">Completed Work Orders</button>
+        </nav>
         <div id="workorders-list" class="list-container"></div>
-        <h3>Completed Work Orders</h3>
-        <div id="completed-workorders-list" class="list-container"></div>
+        <div id="completed-workorders-list" class="list-container hidden"></div>
     </section>
 
     <!-- Workers Section -->

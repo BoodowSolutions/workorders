@@ -219,6 +219,28 @@ button.secondary-btn:hover {
     background-color: #e0e0e0;
 }
 
+/* Sub-tabs within work orders section */
+.sub-tabs {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+}
+.sub-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    font-weight: bold;
+    color: #3f51b5;
+    transition: border-color 0.3s, color 0.3s;
+}
+.sub-tab.active {
+    border-color: #ff9800;
+    color: #ff9800;
+}
+
 .close-btn {
     position: absolute;
     top: 0.5rem;
