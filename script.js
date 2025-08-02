@@ -78,6 +78,7 @@ const clientForm = document.getElementById('client-form');
 
 // List containers
 const workordersList = document.getElementById('workorders-list');
+const completedWorkordersList = document.getElementById('completed-workorders-list');
 const workersList = document.getElementById('workers-list');
 const clientsList = document.getElementById('clients-list');
 
@@ -161,73 +162,124 @@ function renderClients() {
 }
 
 function renderWorkOrders() {
+    // Clear both lists
     workordersList.innerHTML = '';
-    if (workOrders.length === 0) {
-        workordersList.innerHTML = '<p>No work orders created.</p>';
-        return;
+    completedWorkordersList.innerHTML = '';
+    // Separate active and completed work orders
+    const activeOrders = workOrders.filter(wo => wo.status !== 'Done');
+    const completedOrders = workOrders.filter(wo => wo.status === 'Done');
+    // Render active list
+    if (activeOrders.length === 0) {
+        workordersList.innerHTML = '<p>No active work orders.</p>';
+    } else {
+        // Sort by creation date descending
+        const sortedActive = [...activeOrders].sort((a, b) => b.createdAt - a.createdAt);
+        sortedActive.forEach(wo => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            const client = clients.find(c => c.id === wo.clientId);
+            const worker = workers.find(w => w.id === wo.workerId);
+            const statusSpan = document.createElement('span');
+            statusSpan.className = 'status';
+            statusSpan.textContent = wo.status;
+            statusSpan.setAttribute('data-status', wo.status);
+            card.appendChild(statusSpan);
+            const titleEl = document.createElement('h4');
+            titleEl.textContent = `${wo.number} - ${wo.title}`;
+            card.appendChild(titleEl);
+            const meta = document.createElement('p');
+            meta.textContent = `Client: ${client ? client.name : 'N/A'} | Worker: ${worker ? worker.name : 'N/A'}`;
+            card.appendChild(meta);
+            const due = document.createElement('p');
+            due.textContent = `Due: ${wo.dueDate || ''}`;
+            card.appendChild(due);
+            if (typeof wo.accepted === 'boolean') {
+                const acc = document.createElement('p');
+                acc.textContent = wo.accepted ? 'Accepted' : 'Declined';
+                acc.style.fontWeight = 'bold';
+                acc.style.color = wo.accepted ? '#2e7d32' : '#e53935';
+                card.appendChild(acc);
+            }
+            const actions = document.createElement('div');
+            actions.className = 'card-actions';
+            const editBtn = document.createElement('button');
+            editBtn.className = 'edit-btn';
+            editBtn.textContent = 'Edit';
+            editBtn.addEventListener('click', () => editWorkOrder(wo.id));
+            actions.appendChild(editBtn);
+            const viewBtn = document.createElement('button');
+            viewBtn.className = 'view-btn';
+            viewBtn.textContent = 'View';
+            viewBtn.addEventListener('click', () => viewWorkOrder(wo.id));
+            actions.appendChild(viewBtn);
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.addEventListener('click', () => deleteWorkOrder(wo.id));
+            actions.appendChild(deleteBtn);
+            // Only show Send button if order is not completed (status not Done)
+            const sendBtn = document.createElement('button');
+            sendBtn.className = 'send-btn';
+            sendBtn.textContent = 'Send';
+            sendBtn.addEventListener('click', () => sendWorkOrder(wo.id));
+            actions.appendChild(sendBtn);
+            card.appendChild(actions);
+            workordersList.appendChild(card);
+        });
     }
-    // Sort by creation date descending for display (latest first)
-    const sorted = [...workOrders].sort((a, b) => b.createdAt - a.createdAt);
-    sorted.forEach(wo => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        // Determine human readable names
-        const client = clients.find(c => c.id === wo.clientId);
-        const worker = workers.find(w => w.id === wo.workerId);
-        // Status indicator
-        const statusSpan = document.createElement('span');
-        statusSpan.className = 'status';
-        statusSpan.textContent = wo.status;
-        // store status on attribute for styling
-        statusSpan.setAttribute('data-status', wo.status);
-        card.appendChild(statusSpan);
-        const titleEl = document.createElement('h4');
-        titleEl.textContent = `${wo.number} - ${wo.title}`;
-        card.appendChild(titleEl);
-        const meta = document.createElement('p');
-        meta.textContent = `Client: ${client ? client.name : 'N/A'} | Worker: ${worker ? worker.name : 'N/A'}`;
-        card.appendChild(meta);
-        const due = document.createElement('p');
-        due.textContent = `Due: ${wo.dueDate || ''}`;
-        card.appendChild(due);
-        // Accept/Decline status indicator
-        if (typeof wo.accepted === 'boolean') {
-            const acc = document.createElement('p');
-            acc.textContent = wo.accepted ? 'Accepted' : 'Declined';
-            acc.style.fontWeight = 'bold';
-            acc.style.color = wo.accepted ? '#2e7d32' : '#e53935';
-            card.appendChild(acc);
-        }
-        // Actions
-        const actions = document.createElement('div');
-        actions.className = 'card-actions';
-        // Edit button
-        const editBtn = document.createElement('button');
-        editBtn.className = 'edit-btn';
-        editBtn.textContent = 'Edit';
-        editBtn.addEventListener('click', () => editWorkOrder(wo.id));
-        actions.appendChild(editBtn);
-        // View button
-        const viewBtn = document.createElement('button');
-        viewBtn.className = 'view-btn';
-        viewBtn.textContent = 'View';
-        viewBtn.addEventListener('click', () => viewWorkOrder(wo.id));
-        actions.appendChild(viewBtn);
-        // Delete button
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'delete-btn';
-        deleteBtn.textContent = 'Delete';
-        deleteBtn.addEventListener('click', () => deleteWorkOrder(wo.id));
-        actions.appendChild(deleteBtn);
-        // Send button (only if not yet sent or accepted)
-        const sendBtn = document.createElement('button');
-        sendBtn.className = 'send-btn';
-        sendBtn.textContent = 'Send';
-        sendBtn.addEventListener('click', () => sendWorkOrder(wo.id));
-        actions.appendChild(sendBtn);
-        card.appendChild(actions);
-        workordersList.appendChild(card);
-    });
+    // Render completed list
+    if (completedOrders.length === 0) {
+        completedWorkordersList.innerHTML = '<p>No completed work orders.</p>';
+    } else {
+        const sortedCompleted = [...completedOrders].sort((a, b) => b.createdAt - a.createdAt);
+        sortedCompleted.forEach(wo => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            const client = clients.find(c => c.id === wo.clientId);
+            const worker = workers.find(w => w.id === wo.workerId);
+            const statusSpan = document.createElement('span');
+            statusSpan.className = 'status';
+            statusSpan.textContent = wo.status;
+            statusSpan.setAttribute('data-status', wo.status);
+            card.appendChild(statusSpan);
+            const titleEl = document.createElement('h4');
+            titleEl.textContent = `${wo.number} - ${wo.title}`;
+            card.appendChild(titleEl);
+            const meta = document.createElement('p');
+            meta.textContent = `Client: ${client ? client.name : 'N/A'} | Worker: ${worker ? worker.name : 'N/A'}`;
+            card.appendChild(meta);
+            const due = document.createElement('p');
+            due.textContent = `Due: ${wo.dueDate || ''}`;
+            card.appendChild(due);
+            if (typeof wo.accepted === 'boolean') {
+                const acc = document.createElement('p');
+                acc.textContent = wo.accepted ? 'Accepted' : 'Declined';
+                acc.style.fontWeight = 'bold';
+                acc.style.color = wo.accepted ? '#2e7d32' : '#e53935';
+                card.appendChild(acc);
+            }
+            const actions = document.createElement('div');
+            actions.className = 'card-actions';
+            // For completed orders, allow view/edit/delete
+            const editBtn = document.createElement('button');
+            editBtn.className = 'edit-btn';
+            editBtn.textContent = 'Edit';
+            editBtn.addEventListener('click', () => editWorkOrder(wo.id));
+            actions.appendChild(editBtn);
+            const viewBtn = document.createElement('button');
+            viewBtn.className = 'view-btn';
+            viewBtn.textContent = 'View';
+            viewBtn.addEventListener('click', () => viewWorkOrder(wo.id));
+            actions.appendChild(viewBtn);
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.addEventListener('click', () => deleteWorkOrder(wo.id));
+            actions.appendChild(deleteBtn);
+            card.appendChild(actions);
+            completedWorkordersList.appendChild(card);
+        });
+    }
 }
 
 // Tab switching
